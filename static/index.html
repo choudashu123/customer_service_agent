@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wayfarer Stays — Book a Hotel</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">🏨 Wayfarer Stays</div>
+    <nav>
+      <a href="#hotels">Hotels</a>
+      <a href="#my-bookings">My bookings</a>
+      <button id="dev-toggle" class="ghost-btn" title="Live DB + tool inspector">Dev view</button>
+      <button id="reset-btn" class="ghost-btn" title="Restore the seed data">Reset demo</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Find your stay. Cancel it just as easily.</h1>
+      <p>Book a demo hotel, then ask the assistant (bottom right) about refund
+         policy or cancel in real time — it looks up your live booking.</p>
+    </section>
+
+    <section id="hotels" class="section">
+      <h2>Hotels</h2>
+      <div id="hotel-grid" class="hotel-grid"></div>
+    </section>
+
+    <section id="book" class="section">
+      <h2>Book a stay</h2>
+      <form id="book-form" class="card form-grid">
+        <label>Hotel
+          <select id="f-hotel" required></select>
+        </label>
+        <label>Rate plan
+          <select id="f-rate" required>
+            <option value="FLEX">Flexible</option>
+            <option value="SEMI">Semi-Flexible</option>
+            <option value="NONREF">Non-Refundable (promo)</option>
+          </select>
+        </label>
+        <label>Check-in date
+          <input id="f-checkin" type="date" required />
+        </label>
+        <label>Nights
+          <input id="f-nights" type="number" min="1" max="30" value="3" required />
+        </label>
+        <label>Guest name
+          <input id="f-guest" type="text" placeholder="Jordan Davis" required />
+        </label>
+        <label>Surname (for lookups)
+          <input id="f-last" type="text" placeholder="Davis" required />
+        </label>
+        <label class="span2">Email
+          <input id="f-email" type="email" placeholder="you@example.com" required />
+        </label>
+        <div class="span2 quote-line" id="quote-line"></div>
+        <button type="submit" class="primary span2">Confirm booking</button>
+      </form>
+      <div id="book-result"></div>
+    </section>
+
+    <section id="my-bookings" class="section">
+      <h2>My bookings</h2>
+      <form id="lookup-form" class="lookup-form">
+        <input id="lookup-email" type="email" placeholder="you@example.com" />
+        <button type="submit">Show bookings</button>
+        <span class="hint">try demo@example.com</span>
+      </form>
+      <div id="my-bookings-list" class="hotel-grid"></div>
+    </section>
+  </main>
+
+  <aside id="dev-drawer" class="dev-drawer hidden">
+    <div class="dev-header">
+      <span>Live database &amp; tool log</span>
+      <span id="mode-badge" class="badge mode">agent: …</span>
+    </div>
+    <div class="dev-body">
+      <table class="bookings">
+        <thead><tr><th>ID</th><th>Guest</th><th>Rate</th><th>Paid</th><th>Status</th><th>Refund</th></tr></thead>
+        <tbody id="bookings-body"></tbody>
+      </table>
+      <ol id="log-list" class="log-list"></ol>
+    </div>
+  </aside>
+
+  <div id="chat-widget" class="chat-widget">
+    <button id="chat-fab" class="chat-fab">💬 Support</button>
+    <div id="chat-panel" class="chat-panel hidden">
+      <div class="chat-panel-header">
+        <span>Customer support</span>
+        <button id="chat-close" class="ghost-btn small">✕</button>
+      </div>
+      <div class="chips" id="chips">
+        <button data-msg="What's your cancellation policy?">policy?</button>
+        <button data-msg="What happens if I don't show up?">no-show?</button>
+        <button data-msg="cancel it">cancel it</button>
+        <button data-msg="Yes, please cancel">yes</button>
+      </div>
+      <div id="messages" class="messages"></div>
+      <form id="chat-form" autocomplete="off">
+        <input id="chat-input" type="text" placeholder="Ask about policy or a booking…" required />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
