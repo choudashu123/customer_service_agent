@@ -4,6 +4,17 @@ cd "$(dirname "$0")"
 
 PORT="${PORT:-8000}"
 
+if [ ! -f .env ]; then
+  if [ -f .env.example ]; then
+    echo "Creating .env from .env.example…"
+    cp .env.example .env
+  else
+    echo "Creating empty .env…"
+    touch .env
+  fi
+  echo "⚠️  Please configure your API key in .env (OpenAI, Google, or Anthropic)."
+fi
+
 PY=.venv/bin/python
 if [ ! -x "$PY" ]; then
   echo "Creating virtualenv…"
