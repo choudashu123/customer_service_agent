@@ -5,7 +5,6 @@ to touch the database, run refund maths, or query the policy corpus.
 from __future__ import annotations
 
 import sqlite3
-import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -205,97 +204,63 @@ def create_booking(*, hotel_id: str, rate_plan: str, check_in: str, nights: int,
 
 
 # --------------------------------------------------------------------------- #
-# Tool-execution log (observability)                                          #
-# --------------------------------------------------------------------------- #
-TOOL_LOG: list[dict] = []
-
-
-def _log(name: str, params: dict, result: dict, t0: float) -> None:
-    TOOL_LOG.append({
-        "ts": _iso(datetime.now(timezone.utc)),
-        "tool": name, "params": params, "result": result,
-        "duration_ms": round((time.perf_counter() - t0) * 1000, 2),
-    })
-    del TOOL_LOG[:-200]
-
-
-# --------------------------------------------------------------------------- #
 # Agent tools                                                                 #
 # --------------------------------------------------------------------------- #
 def search_policy(query: str, k: int = 3) -> dict:
     """RAG retrieval over the hotel policy corpus."""
-    t0 = time.perf_counter()
     hits = rag.search(query, k=k)
-    out = {"query": query, "matches": hits}
-    _log("search_policy", {"query": query},
-         {"n": len(hits), "sources": [h["source"] for h in hits]}, t0)
-    return out
+    return {"query": query, "matches": hits}
 
 
 def lookup_booking(booking_id: str, last_name: str) -> dict:
-    t0 = time.perf_counter()
     row = get_booking(booking_id)
     if not row or row["last_name"].lower() != last_name.strip().lower():
-        out = {"found": False,
-               "reason": "No booking matches that reference and surname."}
-    else:
-        out = {"found": True, "booking": row}
-    _log("lookup_booking", {"booking_id": booking_id, "last_name": last_name},
-         {"found": out["found"]}, t0)
-    return out
+        return {"found": False,
+                "reason": "No booking matches that reference and surname."}
+    return {"found": True, "booking": row}
 
 
 def evaluate_cancellation_policy(booking_id: str) -> dict:
-    t0 = time.perf_counter()
     row = get_booking(booking_id)
     if not row:
-        out = {"ok": False, "reason": "Booking not found."}
-    elif row["status"] != "CONFIRMED":
-        out = {"ok": False, "reason": f"Booking is already {row['status']}."}
-    else:
-        out = policy.evaluate(
-            rate_plan=row["rate_plan"], check_in=row["check_in"],
-            nights=row["nights"], nightly_rate=row["nightly_rate"],
-            taxes_fees=row["taxes_fees"], amount_paid=row["amount_paid"])
-        out["booking_id"] = row["booking_id"]
-        out["currency"] = row["currency"]
-    _log("evaluate_cancellation_policy", {"booking_id": booking_id},
-         {k: out.get(k) for k in ("ok", "refund_amount", "refund_pct")}, t0)
+        return {"ok": False, "reason": "Booking not found."}
+    if row["status"] != "CONFIRMED":
+        return {"ok": False, "reason": f"Booking is already {row['status']}."}
+    out = policy.evaluate(
+        rate_plan=row["rate_plan"], check_in=row["check_in"],
+        nights=row["nights"], nightly_rate=row["nightly_rate"],
+        taxes_fees=row["taxes_fees"], amount_paid=row["amount_paid"])
+    out["booking_id"] = row["booking_id"]
+    out["currency"] = row["currency"]
     return out
 
 
 def cancel_booking(booking_id: str, confirm: bool = False, reason: str = "") -> dict:
     """Two-phase: confirm=False only quotes; confirm=True mutates. Idempotent."""
-    t0 = time.perf_counter()
     row = get_booking(booking_id)
 
     if not row:
-        out = {"ok": False, "reason": "Booking not found."}
-    elif row["status"] == "CANCELLED":
-        out = {"ok": True, "already_cancelled": True, "booking_id": row["booking_id"],
-               "status": "CANCELLED", "refund_amount": row["refund_amount"],
-               "refund_code": row["refund_code"], "currency": row["currency"]}
-    elif not confirm:
-        out = {"ok": True, "needs_confirmation": True,
-               "quote": evaluate_cancellation_policy(booking_id)}
-    else:
-        quote = policy.evaluate(
-            rate_plan=row["rate_plan"], check_in=row["check_in"],
-            nights=row["nights"], nightly_rate=row["nightly_rate"],
-            taxes_fees=row["taxes_fees"], amount_paid=row["amount_paid"])
-        refund = quote["refund_amount"]
-        code = "RF-" + str(uuid.uuid4().int % 100000).zfill(5)
-        ts = _iso(datetime.now(timezone.utc))
-        with _conn() as c:
-            c.execute("UPDATE bookings SET status='CANCELLED', refund_amount=?, "
-                      "refund_code=?, cancelled_at=? WHERE booking_id=?",
-                      (refund, code, ts, row["booking_id"]))
-        out = {"ok": True, "booking_id": row["booking_id"], "status": "CANCELLED",
-               "refund_amount": refund, "refund_code": code,
-               "currency": row["currency"], "cancelled_at": ts,
-               "rule_applied": quote["rule_applied"], "reason": reason}
+        return {"ok": False, "reason": "Booking not found."}
+    if row["status"] == "CANCELLED":
+        return {"ok": True, "already_cancelled": True, "booking_id": row["booking_id"],
+                "status": "CANCELLED", "refund_amount": row["refund_amount"],
+                "refund_code": row["refund_code"], "currency": row["currency"]}
+    if not confirm:
+        return {"ok": True, "needs_confirmation": True,
+                "quote": evaluate_cancellation_policy(booking_id)}
 
-    _log("cancel_booking",
-         {"booking_id": booking_id, "confirm": confirm, "reason": reason},
-         {k: out.get(k) for k in ("ok", "needs_confirmation", "refund_code")}, t0)
-    return out
+    quote = policy.evaluate(
+        rate_plan=row["rate_plan"], check_in=row["check_in"],
+        nights=row["nights"], nightly_rate=row["nightly_rate"],
+        taxes_fees=row["taxes_fees"], amount_paid=row["amount_paid"])
+    refund = quote["refund_amount"]
+    code = "RF-" + str(uuid.uuid4().int % 100000).zfill(5)
+    ts = _iso(datetime.now(timezone.utc))
+    with _conn() as c:
+        c.execute("UPDATE bookings SET status='CANCELLED', refund_amount=?, "
+                  "refund_code=?, cancelled_at=? WHERE booking_id=?",
+                  (refund, code, ts, row["booking_id"]))
+    return {"ok": True, "booking_id": row["booking_id"], "status": "CANCELLED",
+            "refund_amount": refund, "refund_code": code,
+            "currency": row["currency"], "cancelled_at": ts,
+            "rule_applied": quote["rule_applied"], "reason": reason}

@@ -139,24 +139,37 @@ class Agent:
         self._build_graph()  # a fresh MemorySaver drops every session's history
 
     def reply(self, session_id: str, message: str) -> dict:
-        log_start = len(db.TOOL_LOG)
         try:
             state = self._graph.invoke(
                 {"messages": [{"role": "user", "content": message}]},
                 config={"configurable": {"thread_id": session_id},
                         "recursion_limit": _RECURSION_LIMIT},
             )
-            final = state["messages"][-1].content if state["messages"] else ""
+            messages = state.get("messages", [])
+            final = messages[-1].content if messages else ""
         except GraphRecursionError:
+            messages = []
             final = ("Sorry, I couldn't work that out. Could you rephrase, or give "
                      "me the booking reference and surname again?")
         if isinstance(final, list):  # some providers return content blocks
             final = "".join(
                 b.get("text", "") for b in final if isinstance(b, dict)
             )
+        last_user_idx = max(
+            (i for i, m in enumerate(messages)
+             if getattr(m, "type", "") == "human" or getattr(m, "role", "") == "user"),
+            default=0,
+        )
+        tools_called = [
+            tc["name"]
+            for m in messages[last_user_idx:]
+            if hasattr(m, "tool_calls") and m.tool_calls
+            for tc in m.tool_calls
+            if isinstance(tc, dict) and "name" in tc
+        ]
         return {
             "reply": (final or "").strip() or "…",
-            "tools_called": [e["tool"] for e in db.TOOL_LOG[log_start:]],
+            "tools_called": tools_called,
         }
 
 

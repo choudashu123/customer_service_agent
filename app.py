@@ -80,7 +80,7 @@ class BookingIn(BaseModel):
 def _chat_error(sid: str, message: str, status: int) -> JSONResponse:
     return JSONResponse({"session_id": sid, "reply": f"⚠️ {message}",
                          "tools_called": [], "agent_mode": "llm",
-                         "bookings": db.all_bookings(), "logs": db.TOOL_LOG[-30:]},
+                         "bookings": db.all_bookings()},
                         status_code=status)
 
 
@@ -99,7 +99,6 @@ def chat(body: ChatIn) -> JSONResponse:
         "tools_called": result["tools_called"],
         "agent_mode": "llm",
         "bookings": db.all_bookings(),
-        "logs": db.TOOL_LOG[-30:],
     })
 
 
@@ -122,15 +121,9 @@ def bookings(email: Optional[str] = Query(default=None)) -> dict:
             "agent_mode": "llm"}
 
 
-@app.get("/api/logs")
-def logs() -> dict:
-    return {"logs": db.TOOL_LOG}
-
-
 @app.post("/api/reset")
 def reset() -> dict:
     db.init_db(force=True)
-    db.TOOL_LOG.clear()
     if _AGENT is not None:
         _AGENT.reset()
     return {"ok": True, "bookings": db.all_bookings()}

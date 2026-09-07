@@ -126,11 +126,11 @@ def test_tool_cancellation_flow_is_two_phase(tmp_path):
     assert again["ok"] and again.get("already_cancelled")
 
 
-def test_tool_search_policy_logs_and_returns_matches(tmp_path):
+def test_tool_search_policy_returns_matches(tmp_path):
     db = _fresh_db(tmp_path)
     out = db.search_policy("non-refundable promo rate refund")
     assert out["matches"]
-    assert db.TOOL_LOG[-1]["tool"] == "search_policy"
+    assert out["query"] == "non-refundable promo rate refund"
 
 
 # --------------------------------------------------------------------------- #

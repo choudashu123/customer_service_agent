@@ -5,7 +5,6 @@ const RATE_MULT = { FLEX: 1.0, SEMI: 0.9, NONREF: 0.8 };
 const SID_KEY = "tcsa_session";
 let sessionId = localStorage.getItem(SID_KEY) || null;
 let hotels = [];
-let lastStatuses = {};
 
 function money(a, c = "USD") {
   return `${c} ${Number(a).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -97,7 +96,6 @@ $("#book-form").addEventListener("submit", async (e) => {
       `${money(b.amount_paid, b.currency)} total. Look it up under "My bookings" or ask the chat.</span>`;
     $("#lookup-email").value = b.email;
     loadMyBookings(b.email);
-    refreshDev();
   } else {
     out.innerHTML = `<span class="err">Couldn't book: ${data.reason || "unknown error"}</span>`;
   }
@@ -171,9 +169,6 @@ async function send(message) {
     sessionId = data.session_id;
     localStorage.setItem(SID_KEY, sessionId);
     addMessage("bot", data.reply, data.tools_called);
-    renderBookings(data.bookings);
-    renderLogs(data.logs);
-    $("#mode-badge").textContent = "agent: " + data.agent_mode;
     const email = $("#lookup-email").value.trim();
     if (email) loadMyBookings(email);
   } catch (e) {
@@ -190,59 +185,14 @@ $("#chips").addEventListener("click", (e) => {
   if (e.target.dataset.msg) send(e.target.dataset.msg);
 });
 
-$("#dev-toggle").addEventListener("click", () => {
-  $("#dev-drawer").classList.toggle("hidden");
-  if (!$("#dev-drawer").classList.contains("hidden")) refreshDev();
-});
-
-function renderBookings(rows) {
-  const body = $("#bookings-body");
-  body.innerHTML = "";
-  for (const b of rows) {
-    const tr = document.createElement("tr");
-    if (lastStatuses[b.booking_id] && lastStatuses[b.booking_id] !== b.status) tr.className = "flash";
-    tr.innerHTML = `
-      <td>${b.booking_id}</td><td>${b.guest_name}</td><td>${b.rate_plan}</td>
-      <td>${money(b.amount_paid, b.currency)}</td>
-      <td><span class="badge ${b.status}">${b.status}</span></td>
-      <td>${b.refund_amount ? money(b.refund_amount, b.currency) : "—"}</td>`;
-    body.appendChild(tr);
-    lastStatuses[b.booking_id] = b.status;
-  }
-}
-
-function renderLogs(logs) {
-  const list = $("#log-list");
-  list.innerHTML = "";
-  for (const e of [...logs].reverse()) {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <span class="tool-name">${e.tool}</span><span class="dur">${e.duration_ms} ms</span>
-      <div class="kv">in: ${JSON.stringify(e.params)}</div>
-      <div class="kv">out: ${JSON.stringify(e.result)}</div>`;
-    list.appendChild(li);
-  }
-}
-
-async function refreshDev() {
-  const r = await fetch("/api/bookings");
-  const data = await r.json();
-  renderBookings(data.bookings);
-  $("#mode-badge").textContent = "agent: " + data.agent_mode;
-  const lr = await fetch("/api/logs");
-  renderLogs((await lr.json()).logs);
-}
-
 $("#reset-btn").addEventListener("click", async () => {
   await fetch("/api/reset", { method: "POST" });
-  lastStatuses = {};
   sessionId = null;
   localStorage.removeItem(SID_KEY);
   $("#messages").innerHTML = "";
   $("#my-bookings-list").innerHTML = "";
   $("#book-result").innerHTML = "";
   addMessage("bot", "Demo data reset. Session cleared.");
-  refreshDev();
 });
 
 (function init() {
@@ -250,6 +200,4 @@ $("#reset-btn").addEventListener("click", async () => {
   $("#f-checkin").value = d.toISOString().slice(0, 10);
   loadHotels();
   addMessage("bot", "Hi! Ask me about our cancellation policy, or give me a booking reference and surname to look it up or cancel it.");
-  refreshDev();
-  setInterval(refreshDev, 5000);
 })();
