@@ -1,4 +1,5 @@
 *****References*****
+Doc: https://docs.google.com/document/d/1zhD-A_SDZfKFbFXtWn2L0X-MVP6LA9q-AsRDNtKmA78/edit?usp=sharing
 Video: https://youtu.be/RiDgVbCtPdg
 Github repo: https://github.com/choudashu123/customer_service_agent.git
 
