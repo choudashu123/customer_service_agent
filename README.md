@@ -1,3 +1,7 @@
+*****References*****
+Video: https://youtu.be/RiDgVbCtPdg
+Github repo: https://github.com/choudashu123/customer_service_agent.git
+
 # AI Customer Service & Booking Agent
 
 An intelligent, autonomous hotel customer service assistant powered by LangGraph, LangChain, and FastAPI. It integrates deterministically enforced cancellation and refund policies with a semantic RAG policy search engine and a real-time booking management system.
